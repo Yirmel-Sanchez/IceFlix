@@ -9,6 +9,7 @@ import uuid
 class DB_controller():
     def __init__(self, pathDB):
         self.db_name = '../DB/media.json'
+        self.media = self.cargarMedia()
 
     def cargarMedia(self):
         try:
@@ -28,22 +29,95 @@ class DB_controller():
 
 class Catalog(IceFlix.MediaCatalog):
     """Servant for the IceFlix.MediaCatalog interface."""
+    
+    def __init__(self):
+        """ Inicializador del catálogo. """
+        self.dbController = DB_controller()
 
     def getTile(self, mediaId, userToken, current=None):  # pylint:disable=invalid-name, unused-argument
         "Devuelve el medio cuyo identificador sea igual a mediaId."
-        # TODO: implement
-        return None
-    
+        
+        # Comprobamos que el usuario está autorizado
+        main = CatalogServer().serverMain()
+        try:
+            authorized = main.getAutenticator().isAuthorized(userToken)
+        except IceFlix.TemporaryUnavailable:
+            raise IceFlix.TemporaryUnavailable()
+
+        if not authorized:
+            raise IceFlix.Unauthorized()
+        
+        # Comprobamos que el mediaId exista en la base de datos
+        medioAux = None
+        media = self.dbController.media
+        for video in media["medios"]:
+            if video["id"] == mediaId:
+                medioAux = video
+                break
+        
+        if medioAux is None:
+            raise IceFlix.WrongMediaId()
+        
+        # Creamos el medio
+        medioInfo = IceFlix.MediaInfo()
+        medioInfo.name = medioAux["info"]["name"]
+        medioInfo.tags = medioAux["info"]["tags"]
+
+        medio = IceFlix.Media()
+        medio.mediaId = medioAux["id"]
+        medio.provider = medioAux["provider"]
+        medio.info = medioInfo
+
+        return medio
+        
     def getTilesByName(self, name, exact, current=None):  # pylint:disable=invalid-name, unused-argument
         "Devuelve una lista con los identificadores según el título de los medios."
-        # TODO: implement
-        return None
+        result = []
+        media = self.dbController.media
+        for video in media["medios"]:
+            if exact:
+                if video["info"]["name"] == name:
+                    result.append(video["id"])
+            else:
+                if name in video["info"]["name"]:
+                    result.append(video["id"])
+        
+        return result
 
     def getTilesByTags(self, tags, includeAllTags, userToken, current=None):  # pylint:disable=invalid-name, unused-argument
         "Devuelve una lista con los identificadores según los tags de los medios."
-        # TODO: implement
-        return None
+
+        # Comprobamos que el usuario está autorizado
+        main = CatalogServer().serverMain()
+        try:
+            authorized = main.getAutenticator().isAuthorized(userToken)
+        except IceFlix.TemporaryUnavailable:
+            raise IceFlix.TemporaryUnavailable()
+
+        if not authorized:
+            raise IceFlix.Unauthorized()
+        
+        # obtener los resultados
+        result = []
+        media = self.dbController.media
+        for video in media["medios"]:
+            if includeAllTags:
+                # si falta algún tag en la lista de tags del video, no se añade
+                response = any (tag not in video["info"]["tags"] for tag in tags)
+                if not response:
+                    result.append(video["id"])
+            else:
+                # si algun tag está en la lista de tags del video, se añade
+                response = any (el in tags for el in video["info"]["tags"])
+                if response:
+                    result.append(video["id"])
+        
+        return result
     
+    def tagInList(self, tag, list):
+        return tag in list
+
+
     def newMedia(self,  mediaId, provider, current=None):  # pylint:disable=invalid-name, unused-argument
         "el FileService informa que hay medios disponibles."
         # TODO: implement
@@ -69,16 +143,18 @@ class Catalog(IceFlix.MediaCatalog):
         # TODO: implement
         return None
 
-
 class CatalogServer(Ice.Application):
-    """Example Ice.Application for a Main service."""
+    """Example Ice.Application for a catalog service."""
 
     def __init__(self):
+        """ Inicializador del servicio. """
         super().__init__()
         self.idService = str(uuid.uuid4())
         self.servant = Catalog()
         self.proxy = None
         self.adapter = None
+        self.media = DB_controller()
+        self.media.cargarMedia()
 
     def serverMain(self):
         """ método que devuelve la referencia al objeto main """
@@ -115,8 +191,6 @@ if __name__ == '__main__':
     server_catalog = CatalogServer()
     sys.exit(server_catalog.main(sys.argv))
 
-## Media getTile(string mediaId, string userToken) throws WrongMediaId,     TemporaryUnavailable, Unauthorized;
-## StringList getTilesByName(string name, bool exact);
 # StringList getTilesByTags(StringList tags, bool includeAllTags, string userToken) throws Unauthorized;
 # void newMedia(string mediaId, FileService* provider);
 # void removeMedia(string mediaId, FileService* provider);
