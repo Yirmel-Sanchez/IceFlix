@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-python3 ./testServer.py --Ice.Config="../configs/tester.config"
+python3 ./test_server.py --Ice.Config="../configs/tester.config"
 
