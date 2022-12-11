@@ -14,7 +14,7 @@ El repositorio contiene los siguientes archivos y directorios:
 * `tests`: directorio que contiene las pruebas del servicio.
     * `tests/authenticator_tester.py`: servicio que simula el servicio de autenticación implementando solo los métodos que utiliza el catálogo.
     * `tests/main_tester.py`: servicio que simula el servicio de principal implementando solo los métodos que utiliza el catálogo.
-    * `tests/testServer.py`: programa que prueba las llamadas del servicio de catálogo, simulando en parte al servicio de ficheros.
+    * `tests/test_server.py`: programa que prueba las llamadas del servicio de catálogo, simulando en parte al servicio de ficheros.
     * `tests/run_mainTester`: script que ejecuta los servicios que simulan al Main y al authenticator.
     * `tests/run_tests`: script que ejecuta las pruebas del catálogo.
 
