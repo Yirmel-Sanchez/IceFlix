@@ -1,13 +1,15 @@
 import logging
 import Ice
 import sys
+Ice.loadSlice("iceflix.ice")
 import IceFlix  # pylint:disable=import-error
 import json
 import threading
 import uuid
+import time
 
 class DB_controller():
-    def __init__(self, pathDB):
+    def __init__(self):
         self.db_name = '../DB/media.json'
         self.media = self.cargarMedia()
 
@@ -33,6 +35,16 @@ class DB_controller():
                 video["provider"] = medioJson["provider"]
                 video["info"] = medioJson["info"]
         return self.guardarMedia()
+    
+    def eliminarMedio(self, mediaId):
+        for video in self.media["medios"]:
+            if video["id"] == mediaId:
+                self.media["medios"].remove(video)
+        return self.guardarMedia()
+    
+    def aniadirMedio(self, medioJson):
+        self.media["medios"].append(medioJson)
+        return self.guardarMedia()
 
 class Catalog(IceFlix.MediaCatalog):
     """Servant for the IceFlix.MediaCatalog interface."""
@@ -43,10 +55,11 @@ class Catalog(IceFlix.MediaCatalog):
         self.dbController = DB_controller()
     
     def autenticate(self, userToken):
+        print("Autenticando usuario...")
         "Indica si el usuario especificado está autorizado."
         main = CatalogServer().serverMain()
         try:
-            return main.getAutenticator().isAuthorized(userToken)
+            return main.getAuthenticator().isAuthorized(userToken)
         except IceFlix.TemporaryUnavailable:
             raise IceFlix.TemporaryUnavailable()
 
@@ -86,7 +99,7 @@ class Catalog(IceFlix.MediaCatalog):
 
         medio = IceFlix.Media()
         medio.mediaId = medioAux["id"]
-        medio.provider = medioAux["provider"]
+        medio.provider = IceFlix.FileServicePrx.uncheckedCast(server_catalog.communicator().stringToProxy(medioAux["provider"]))
         medio.info = medioInfo
         return medio
         
@@ -127,19 +140,26 @@ class Catalog(IceFlix.MediaCatalog):
 
     def newMedia(self,  mediaId, provider, current=None):  # pylint:disable=invalid-name, unused-argument
         "el FileService informa que hay medios disponibles."
-        # TODO: implement
-        return None
+        try:
+            result = self.getMediaDB(mediaId)
+        except IceFlix.WrongMediaId:
+            str_provider = server_catalog.communicator().proxyToString(provider)
+            jsonMedia = {"id": mediaId, "provider": str_provider, "info": {"name": mediaId, "tags": []}}
+            self.dbController.aniadirMedio(jsonMedia)
     
     def removeMedia(self,  mediaId, provider, current=None):  # pylint:disable=invalid-name, unused-argument
         "el FileService informa que un fichero ya no está disponible."
-        # TODO: implement
-        return None
+        self.dbController.eliminarMedio(mediaId)
     
     def renameTile(self,  mediaId, name, adminToken, current=None):  # pylint:disable=invalid-name, unused-argument
         "el admin lo utiliza para renombrar medios."
+        print("get Authenticator\n")
         main = CatalogServer().serverMain()
+        
         try:
-            esAdmin = main.getAutenticator().isAdmin(adminToken)
+            result = main.getAuthenticator()
+            print(result)
+            esAdmin = IceFlix.AuthenticatorPrx.checkedCast(result).isAdmin(adminToken)
         except IceFlix.TemporaryUnavailable:
             raise IceFlix.TemporaryUnavailable()
         
@@ -198,35 +218,42 @@ class CatalogServer(Ice.Application):
         self.adapter = None
         self.media = DB_controller()
         self.media.cargarMedia()
+        self.fin = True
+        with open('../configs/main_proxy.proxy', 'r') as f:
+            self.str_proxy_main = f.readline()
 
     def serverMain(self):
         """ método que devuelve la referencia al objeto main """
-        proxy = self.communicator().stringToProxy(sys.argv[1])
-        Main = IceFlix.MainPrx.checkedCast(proxy)
+        proxy = self.communicator().stringToProxy(self.str_proxy_main)
+        Main = IceFlix.MainPrx.uncheckedCast(proxy)
         return Main
     
     def anunciarServicio(self):
         """ Anunciar el servicio al main. """
-        self.serverMain().announce(self.proxy, self.idService)
+        while self.fin:
+            self.serverMain().announce(self.proxy, self.idService)
+            print("Servicio anunciado\n")
+            time.sleep(25)
 
     def run(self, args):
         """ Run the application, adding the needed objects to the adapter. """
-        logging.info("Running Main application")
+        logging.info("Running Main application\n")
         broker = self.communicator()
 
         self.adapter = broker.createObjectAdapter("MediaCatalogAdapter")
         self.adapter.activate()
 
         self.proxy = self.adapter.addWithUUID(self.servant)
+        
+        print("Servicio creado\n")
+        self.serverMain().newService(self.proxy, self.idService)  
 
-        self.serverMain().newService(self.proxy, self.idService)
-
-        hiloAux = t = threading.Timer(25, self.anunciarServicio)
+        hiloAux = t = threading.Thread(target=self.anunciarServicio)
         hiloAux.start()
 
         self.shutdownOnInterrupt()
         broker.waitForShutdown()
-        hiloAux.join()
+        self.fin = False
 
         return 0
 
