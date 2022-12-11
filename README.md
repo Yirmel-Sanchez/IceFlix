@@ -34,4 +34,4 @@ Para la ejecución de las pruebas es necesario:
 
 
 ## Librerías y paquetes requeridos
-Para la correcta ejecución del sistema es necesaria la instalación de la librería `zeroc-ice` en una versión mayor o igual a la **3.7.0**.
+Para la correcta ejecución del sistema es necesaria la instalación de la librería `zeroc-ice` en una versión igual o superior a la **3.7.0**.
