@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-python3 ./autheticatorTester.py --Ice.Config="../configs/tester.config" &
-python3 ./mainTester.py --Ice.Config="../configs/tester.config"
+python3 ./autheticator_tester.py --Ice.Config="../configs/tester.config" &
+python3 ./main_tester.py --Ice.Config="../configs/tester.config"
 
