@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+echo "Running IceStorm"
+mkdir -p ../DB/tmp/IceStorm
+icebox --Ice.Config="../configs/icebox.config"
