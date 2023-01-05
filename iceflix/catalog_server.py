@@ -3,24 +3,27 @@
 # -*- coding: utf-8 -*-
 
 
+
+import sys
 import time
 import uuid
 import threading
 import json
-
 import logging
-import sys
+
 import Ice
 import IceStorm
 
 Ice.loadSlice("iceflix.ice")
-import IceFlix # pylint: disable=import-error, wrong-import-position
+import IceFlix  # pylint: disable=import-error, wrong-import-position
 
 ########################################################################################
 ################################# Controlador BD #######################################
 
+
 class DBController():
     '''Clase que controla la base de datos'''
+
     def __init__(self):
         '''Inicializador de la clase'''
         self.db_name = '../DB/media.json'
@@ -31,19 +34,19 @@ class DBController():
         try:
             with open(self.db_name, 'r', encoding='utf-8') as file:
                 return json.load(file)
-        except: # pylint: disable=bare-except
+        except:  # pylint: disable=bare-except
             logging.error("Error al cargar la base de datos")
             return json.loads('{"medios":[]}')
 
     def guardar_media(self):
         '''Guarda la base de datos en disco'''
         try:
+            with open(self.db_name, 'x', encoding='utf-8') as file:
+                json.dump(self.media, file, indent=4)
+        except FileExistsError:
+            # El archivo ya existe, así que lo abrimos en modo escritura
             with open(self.db_name, 'w', encoding='utf-8') as file:
                 json.dump(self.media, file, indent=4)
-            return True
-        except: # pylint: disable=bare-except
-            logging.error("Error al guardar la base de datos")
-            return False
 
     def actualizar_medio(self, medio_json):
         '''Actualiza un medio en la base de datos'''
@@ -68,8 +71,10 @@ class DBController():
 ########################################################################################
 ############################### Topic Announcement #####################################
 
-class Announces(IceFlix.Announcement):
+
+class Announces(IceFlix.Announcement): # pylint: disable=too-few-public-methods
     '''Servant for the IceFlix.Announcement interface.'''
+
     def __init__(self):
         self.mains = {}
         self.authenticators = {}
@@ -77,9 +82,9 @@ class Announces(IceFlix.Announcement):
         self.files = {}
         self.service_id = server_catalog.id_service
 
-    def announce(self, service, serviceId, current=None):  # pylint: disable=unused-argument
+    def announce(self, service, serviceId, current=None):  # pylint: disable=unused-argument, invalid-name
         '''Recoge los eventos de anuncios.'''
-        if serviceId == self.service_id: # el servicio anunciado es el propio
+        if serviceId == self.service_id:  # el servicio anunciado es el propio
             return
 
         all_services = {}
@@ -88,124 +93,132 @@ class Announces(IceFlix.Announcement):
         all_services.update(self.catalogs)
         all_services.update(self.files)
 
-        if serviceId in all_services: # el servicio ya está registrado
+        if serviceId in all_services:  # el servicio ya está registrado
             return
-        
+
         if service.ice_isA("::IceFlix::Main"):
             self.mains.update({serviceId: service})
-            print("new Main service: ", serviceId)
+            logging.info("new Main service: %s\n", serviceId)
         elif service.ice_isA("::IceFlix::Authenticator"):
             self.authenticators.update({serviceId: service})
-            print("new Authenticator service: ", serviceId)
+            logging.info("new Authenticator service: %s\n", serviceId)
         elif service.ice_isA("::IceFlix::MediaCatalog"):
             self.catalogs.update({serviceId: service})
-            print("new MediaCatalog service: ", serviceId)
+            logging.info("new MediaCatalog service: %s\n", serviceId)
         elif service.ice_isA("::IceFlix::FileService"):
             self.files.update({serviceId: service})
-            print("new FileService service: ", serviceId)
+            logging.info("new FileService service: %s\n", serviceId)
 
 ########################################################################################
 ############################## Topic Catalog Update ####################################
 
+
 class CatalogUpdates(IceFlix.CatalogUpdate):
     '''Servant for the IceFlix.CatalogUpdate interface.'''
+
     def __init__(self, anuncios):
         '''Inicializador de la clase'''
         self.interfaz_anuncios = anuncios
-        self.mediaCatalog = server_catalog.servant
-    
-    def renameTile(self, mediaId, newName, serviceId, current=None):
+        self.media_catalog = server_catalog.servant
+
+    def renameTile(self, mediaId, newName, serviceId, current=None): # pylint: disable=unused-argument, invalid-name
         '''captura evento de cambio de nombre'''
         if serviceId == self.interfaz_anuncios.service_id:
             return
-        
+
         if serviceId in self.interfaz_anuncios.catalogs:
             try:
                 # Comprobamos que el mediaId exista en la base de datos
-                medio_aux = self.mediaCatalog.get_media_db(mediaId)
+                medio_aux = self.media_catalog.get_media_db(mediaId)
 
                 # Renombramos el medio
                 medio_aux["info"]["name"] = newName
 
                 # Guardamos los cambios
-                self.mediaCatalog.db_controller.actualizar_medio(medio_aux)
-            except: # pylint: disable=bare-except
+                self.media_catalog.db_controller.actualizar_medio(medio_aux)
+            except:  # pylint: disable=bare-except
                 json_media = {"id": mediaId, "provider": "None",
-                    "info": {"name": newName, "tags": []}}
-                self.mediaCatalog.db_controller.aniadir_medio(json_media)
+                              "info": {"name": newName, "tags": []}}
+                self.media_catalog.db_controller.aniadir_medio(json_media)
 
-    def addTags(self, mediaId, user, tags, serviceId, current=None):
+    def addTags(self, mediaId, user, tags, serviceId, current=None): # pylint: disable=unused-argument, invalid-name, too-many-arguments
         '''captura evento de añadir etiquetas'''
         if serviceId == self.interfaz_anuncios.service_id:
             return
-        
+
         if serviceId in self.interfaz_anuncios.catalogs:
             try:
                 # Comprobamos que el mediaId exista en la base de datos
-                medio_aux = self.mediaCatalog.get_media_db(mediaId)
+                medio_aux = self.media_catalog.get_media_db(mediaId)
 
                 # Añadimos los tags
                 lista_nueva = medio_aux["info"]["tags"] + tags
                 medio_aux["info"]["tags"] = list(set(lista_nueva))
 
                 # Guardamos los cambios
-                self.mediaCatalog.db_controller.actualizar_medio(medio_aux)
-            except: # pylint: disable=bare-except
+                self.media_catalog.db_controller.actualizar_medio(medio_aux)
+            except:  # pylint: disable=bare-except
                 json_media = {"id": mediaId, "provider": "None",
-                    "info": {"name": mediaId, "tags": list(tags)}}
-                self.mediaCatalog.db_controller.aniadir_medio(json_media)
+                              "info": {"name": mediaId, "tags": list(tags)}}
+                self.media_catalog.db_controller.aniadir_medio(json_media)
 
-    def removeTags(self, mediaId, user, tags, serviceId, current=None):
+    def removeTags(self, mediaId, user, tags, serviceId, current=None): # pylint: disable=unused-argument, invalid-name, too-many-arguments
         '''captura evento de eliminar etiquetas'''
         if serviceId == self.interfaz_anuncios.service_id:
             return
-        
+
         if serviceId in self.interfaz_anuncios.catalogs:
             try:
                 # Comprobamos que el mediaId exista en la base de datos
-                medio_aux = self.mediaCatalog.get_media_db(mediaId)
+                medio_aux = self.media_catalog.get_media_db(mediaId)
 
                 # Eliminar los tags
-                lista_nueva = self.mediaCatalog.remove_tag(tags, medio_aux["info"]["tags"])
+                lista_nueva = self.media_catalog.remove_tag(
+                    tags, medio_aux["info"]["tags"])
                 medio_aux["info"]["tags"] = lista_nueva
 
                 # Guardamos los cambios
-                self.mediaCatalog.db_controller.actualizar_medio(medio_aux)
-            except: # pylint: disable=bare-except
+                self.media_catalog.db_controller.actualizar_medio(medio_aux)
+            except:  # pylint: disable=bare-except
                 json_media = {"id": mediaId, "provider": "None",
-                    "info": {"name": mediaId, "tags": []}}
-                self.mediaCatalog.db_controller.aniadir_medio(json_media)
+                              "info": {"name": mediaId, "tags": []}}
+                self.media_catalog.db_controller.aniadir_medio(json_media)
 
 ########################################################################################
 ######################## Topic File Availability Announce ##############################
 
-class FilesAnnounce(IceFlix.FileAvailabilityAnnounce):
+
+class FilesAnnounce(IceFlix.FileAvailabilityAnnounce): # pylint: disable=too-few-public-methods
     '''servant para la interfaz IceFlix.FileAvailabilityAnnounce'''
+
     def __init__(self, anuncios):
         '''Inicializador de la clase'''
         self.interfaz_anuncios = anuncios
-        self.mediaCatalog = server_catalog.servant
-    
-    def announceFiles(self, mediaIds, serviceId, current=None):
+        self.media_catalog = server_catalog.servant
+
+    def announceFiles(self, mediaIds, serviceId, current=None): # pylint: disable=unused-argument, invalid-name
         '''captura evento de anuncio de ficheros'''
         if serviceId in self.interfaz_anuncios.files:
             str_provider = self.interfaz_anuncios.files[serviceId]
 
-            for id in mediaIds:
+            for idx in mediaIds:
                 try:
-                    medio = self.mediaCatalog.get_media_db(id)
+                    medio = self.media_catalog.get_media_db(id)
 
-                    json_media = {"id": id, "provider": str_provider,
-                        "info": {"name": medio["info"]["name"], "tags": medio["info"]["tags"]}}
-                    self.mediaCatalog.db_controller.actualizar_medio(json_media)
+                    json_media = {"id": idx, "provider": str(str_provider),
+                                  "info": {"name": medio["info"]["name"],
+                                  "tags": medio["info"]["tags"]}}
+                    self.media_catalog.db_controller.actualizar_medio(
+                        json_media)
                 except IceFlix.WrongMediaId:
                     # si no existe en la base de datos, se crea
-                    json_media = {"id": id, "provider": str_provider,
-                        "info": {"name": id, "tags": []}}
-                    self.mediaCatalog.db_controller.aniadir_medio(json_media)
+                    json_media = {"id": idx, "provider": str_provider.ice_toString(),
+                                  "info": {"name": idx, "tags": []}}
+                    self.media_catalog.db_controller.aniadir_medio(json_media)
 
 ########################################################################################
 ############################## Servant MediaCatalog ####################################
+
 
 class Catalog(IceFlix.MediaCatalog):
     """Servant for the IceFlix.MediaCatalog interface."""
@@ -215,7 +228,7 @@ class Catalog(IceFlix.MediaCatalog):
         """ Inicializador del catálogo. """
         self.db_controller = DBController()
 
-    def autenticate(self, user_token):
+    def autenticate(self, user_token): # pylint: disable=no-self-use
         '''Autentica al usuario'''
         try:
             main = server_catalog.server_main()
@@ -237,7 +250,7 @@ class Catalog(IceFlix.MediaCatalog):
                 return video
         raise IceFlix.WrongMediaId()
 
-    def remove_tag(self, tags_rem, list_tags):
+    def remove_tag(self, tags_rem, list_tags):  # pylint: disable=no-self-use
         "Elimina los tags de la lista list_tags."
         for tag in tags_rem:
             if tag in list_tags:
@@ -309,7 +322,6 @@ class Catalog(IceFlix.MediaCatalog):
 
         try:
             result = main.getAuthenticator()
-            print(result)
             es_admin = IceFlix.AuthenticatorPrx.checkedCast(
                 result).isAdmin(adminToken)
         except IceFlix.TemporaryUnavailable as exc:
@@ -327,8 +339,9 @@ class Catalog(IceFlix.MediaCatalog):
         # Guardamos los cambios
         self.db_controller.actualizar_medio(medio_aux)
 
-        #propagar el evento
-        server_catalog.catalog_publisher.renamedTile(mediaId, name)
+        # propagar el evento
+        server_catalog.catalog_publisher.renameTile(
+            mediaId, name, server_catalog.id_service)
 
     def addTags(self,  mediaId, tags, userToken, current=None):  # pylint:disable=invalid-name, unused-argument
         "permite añadir una lista de tags a un medio concreto."
@@ -345,8 +358,9 @@ class Catalog(IceFlix.MediaCatalog):
         # Guardamos los cambios
         self.db_controller.actualizar_medio(medio_aux)
 
-        #propagar el evento
-        server_catalog.catalog_publisher.addTags(mediaId, tags)
+        # propagar el evento
+        server_catalog.catalog_publisher.addTags(
+            mediaId, userToken, tags, server_catalog.id_service)
 
     def removeTags(self,  mediaId, tags, userToken, current=None):  # pylint:disable=invalid-name, unused-argument
         "permite eliminar una lista de tags de un medio concreto."
@@ -363,22 +377,23 @@ class Catalog(IceFlix.MediaCatalog):
         # Guardamos los cambios
         self.db_controller.actualizar_medio(medio_aux)
 
-        #propagar el evento
-        server_catalog.catalog_publisher.removeTags(mediaId, tags)
+        # propagar el evento
+        server_catalog.catalog_publisher.removeTags(
+            mediaId, userToken, tags, server_catalog.id_service)
 
-    def getAllDeltas(self): # pylint:disable=invalid-name
+    def getAllDeltas(self):  # pylint:disable=invalid-name
         "Envía la información de renombrado de archivo y de tags."
         for video in self.db_controller.media["medios"]:
-            server_catalog.catalog_publisher.renamedTile(
+            server_catalog.catalog_publisher.renameTile(
                 video["id"], video["info"]["name"])
             server_catalog.catalog_publisher.addTags(
                 video["id"], video["info"]["tags"])
-        
+
 
 ########################################################################################
 ################################# Server Catalog #######################################
 
-class CatalogServer(Ice.Application):
+class CatalogServer(Ice.Application): # pylint:disable=too-many-instance-attributes
     """Example Ice.Application for a catalog service."""
 
     def __init__(self):
@@ -392,56 +407,66 @@ class CatalogServer(Ice.Application):
         self.media.cargar_media()
         self.fin = True
         self.idx = 0
-        self.noMain = False
-        self.noService = False
+        self.no_main = False
+        self.no_service = False
+        self.interfaz_anuncios = None
 
         # variables TopicManager
         self.topic_manager_str_prx = "IceStorm/TopicManager -t:tcp -h localhost -p 10000"
         self.topic_manager = None
 
-        #variables topics
+        # variables topics
         self.topic_announce_str = "Announcement"
         self.topic_catalog_udt_str = "CatalogUpdates"
         self.topic_files_str = "FileAvailabilityAnnounce"
+        self.topic_announce = None
+        self.topic_catalog_udt = None
+        self.topic_files = None
+        self.anuncios_subscriber_proxy = None
+        self.catalog_udt_subscriber_proxy = None
+        self.files_subscriber_proxy = None
+        self.anuncios_publisher = None
+        self.catalog_publisher = None
 
     def server_main(self):
         """ método que devuelve la referencia al objeto main """
-        if len(self.interfaz_anuncios.mains) < 1:
-            raise IceFlix.TemporaryUnavailable()
+        # if len(self.interfaz_anuncios.mains) < 1:
+        # raise IceFlix.TemporaryUnavailable()
 
         self.idx += 1
 
         if self.idx > len(self.interfaz_anuncios.mains) - 1:
             self.idx = 0
-            
-        proxy = self.communicator().stringToProxy(
-            list(self.interfaz_anuncios.mains.values())[self.idx])
+
+        #print("Main type: ", type(list(self.interfaz_anuncios.mains.values())[self.idx]))
+        proxy = list(self.interfaz_anuncios.mains.values())[self.idx]
         main = IceFlix.MainPrx.uncheckedCast(proxy)
         return main
-            
+
     def anunciar_servicio(self):
         """ Anunciar el servicio al main. """
         while self.fin:
             self.anuncios_publisher.announce(self.proxy, self.id_service)
-            print("Servicio anunciado\n")
+            logging.info("Servicio anunciado\n")
             time.sleep(10)
-    
-    def recuperarTopic(self, topic_name):
+
+    def recuperar_topic(self, topic_name):
         ''' Recuperar un topic del topic manager. '''
         try:
             topic = self.topic_manager.create(topic_name)
-        except IceStorm.TopicExists:
+        except IceStorm.TopicExists: # pylint:disable=no-member
             topic = self.topic_manager.retrieve(topic_name)
         return topic
 
     def arranque_sincronizacion(self):
+        """ Método que se encarga de indicar la existencia de otros servicios. """
         time.sleep(12)
         if len(self.interfaz_anuncios.mains) == 0:
-            self.noMain = True
+            self.no_main = True
             return
-        
+
         if len(self.interfaz_anuncios.catalogs) == 0:
-            self.noService = True
+            self.no_service = True
 
     def run(self, args):
         """ Run the application, adding the needed objects to the adapter. """
@@ -452,12 +477,12 @@ class CatalogServer(Ice.Application):
 
         self.proxy = self.adapter.addWithUUID(self.servant)
 
-        print("Servicio creado\n")
-        print(self.proxy, "\n", flush=True)
+        logging.info("Servicio creado\n")
+        logging.info("%s\n", self.proxy)
         self.adapter.activate()
-        
+
         # conectarse al topic manager
-        self.topic_manager = IceStorm.TopicManagerPrx.checkedCast(
+        self.topic_manager = IceStorm.TopicManagerPrx.checkedCast( # pylint:disable=no-member
             broker.stringToProxy(self.topic_manager_str_prx),
         )
 
@@ -470,39 +495,47 @@ class CatalogServer(Ice.Application):
         interfaz_files = FilesAnnounce(self.interfaz_anuncios)
 
         # establecer los topic
-        self.topic_announce = self.recuperarTopic(self.topic_announce_str)
-        self.topic_catalog_udt = self.recuperarTopic(self.topic_catalog_udt_str)
-        self.topic_files = self.recuperarTopic(self.topic_files_str)
+        self.topic_announce = self.recuperar_topic(self.topic_announce_str)
+        self.topic_catalog_udt = self.recuperar_topic(
+            self.topic_catalog_udt_str)
+        self.topic_files = self.recuperar_topic(self.topic_files_str)
 
         # definir los subscriptores y publicadores
 
-        ## subscriptor announcement
-        self.anuncios_subscriber_proxy = self.adapter.addWithUUID(self.interfaz_anuncios)
-        self.topic_announce.subscribeAndGetPublisher({}, self.anuncios_subscriber_proxy)
-        ## subscriptor catalogUpdates
-        self.catalog_udt_subscriber_proxy = self.adapter.addWithUUID(interfaz_catalog_udt)
-        self.topic_catalog_udt.subscribeAndGetPublisher({}, self.catalog_udt_subscriber_proxy)
-        ## subscriptor fileAvailabilityAnnounce
+        # subscriptor announcement
+        self.anuncios_subscriber_proxy = self.adapter.addWithUUID(
+            self.interfaz_anuncios)
+        self.topic_announce.subscribeAndGetPublisher(
+            {}, self.anuncios_subscriber_proxy)
+        # subscriptor catalogUpdates
+        self.catalog_udt_subscriber_proxy = self.adapter.addWithUUID(
+            interfaz_catalog_udt)
+        self.topic_catalog_udt.subscribeAndGetPublisher(
+            {}, self.catalog_udt_subscriber_proxy)
+        # subscriptor fileAvailabilityAnnounce
         self.files_subscriber_proxy = self.adapter.addWithUUID(interfaz_files)
-        self.topic_files.subscribeAndGetPublisher({}, self.files_subscriber_proxy)
+        self.topic_files.subscribeAndGetPublisher(
+            {}, self.files_subscriber_proxy)
 
         self.arranque_sincronizacion()
-        if self.noMain:
-            print("No hay ningún main disponible")
+        if self.no_main:
+            logging.info("No hay ningún main disponible")
         else:
-            if self.noService:
-                print("primero en arrancar")
+            if self.no_service:
+                logging.info("primero en arrancar")
             else:
-                print("no es el primero en arrancar")
+                logging.info("no es el primero en arrancar")
                 IceFlix.MediaCatalogPrx.uncheckedCast(
                     list(self.interfaz_anuncios.catalogs.values())[0]).getAllDeltas()
 
-            ## publicador announcement
+            # publicador announcement
             anuncios_publisher_proxy = self.topic_announce.getPublisher()
-            self.anuncios_publisher = IceFlix.AnnouncementPrx.uncheckedCast(anuncios_publisher_proxy)
-            ## publicador catalogUpdates
+            self.anuncios_publisher = IceFlix.AnnouncementPrx.uncheckedCast(
+                anuncios_publisher_proxy)
+            # publicador catalogUpdates
             catalog_udt_publisher_proxy = self.topic_catalog_udt.getPublisher()
-            self.catalog_publisher = IceFlix.CatalogUpdatePrx.uncheckedCast(catalog_udt_publisher_proxy)
+            self.catalog_publisher = IceFlix.CatalogUpdatePrx.uncheckedCast(
+                catalog_udt_publisher_proxy)
 
             # Anunciamos el servicio al topic
             hilo_aux = threading.Thread(target=self.anunciar_servicio)
@@ -521,5 +554,6 @@ class CatalogServer(Ice.Application):
 
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.DEBUG)
     server_catalog = CatalogServer()
     sys.exit(server_catalog.main(sys.argv))
