@@ -23,7 +23,8 @@ El repositorio contiene los siguientes archivos y directorios:
 ## Ejecución del Servicio
 
 Para utilizar el servicio del cátalogo de manera distribuida con el resto de servicios del sistema es necesario:
-1. Desde el directorio `iceflix/` ejecutar el servicio **Catalog** con el comando `./run_service`.
+1. Desde el directorio `iceflix/` ejecutar **IceBox** con el comando `./run_icestorm`.
+2. Desde el directorio `iceflix/` ejecutar el servicio **Catalog** con el comando `./run_service`.
 
 ## Ejecución de las Pruebas
 
