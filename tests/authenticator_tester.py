@@ -46,7 +46,6 @@ class Server(Ice.Application): # pylint: disable=too-many-instance-attributes
         self.interfaz_anuncios = None
 
         # variables TopicManager
-        self.topic_manager_str_prx = "IceStorm/TopicManager -t:tcp -h localhost -p 10000"
         self.topic_manager = None
 
         #variables topics
@@ -58,7 +57,7 @@ class Server(Ice.Application): # pylint: disable=too-many-instance-attributes
         """ Anunciar el servicio al main. """
         while self.fin:
             self.anuncios_publisher.announce(self.proxy, self.id_service)
-            logging.info("Authenticator Tester anunciado\n")
+            logging.info(" Authenticator Tester anunciado\n")
             time.sleep(10)
 
     def recuperar_topic(self, topic_name):
@@ -71,7 +70,7 @@ class Server(Ice.Application): # pylint: disable=too-many-instance-attributes
 
     def run(self, args):
         """ Run the application, adding the needed objects to the adapter. """
-        logging.info("Running Authenticator application\n")
+        logging.info(" Running Authenticator application\n")
         broker = self.communicator()
 
         self.adapter = broker.createObjectAdapter("TestAuthenticatorAdapter")
@@ -79,8 +78,9 @@ class Server(Ice.Application): # pylint: disable=too-many-instance-attributes
         self.adapter.activate()
 
         # conectarse al topic manager
-        self.topic_manager = IceStorm.TopicManagerPrx.checkedCast( # pylint: disable=no-member
-            broker.stringToProxy(self.topic_manager_str_prx),)
+        self.topic_manager = IceStorm.TopicManagerPrx.checkedCast(  # pylint:disable=no-member
+            self.communicator().propertyToProxy("IceStorm.TopicManager")
+        )
 
         if not self.topic_manager:
             raise RuntimeError("Invalid TopicManager proxy")

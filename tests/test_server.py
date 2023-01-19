@@ -32,8 +32,8 @@ class DBController():
             with open(self.db_name, 'r', encoding='utf-8') as file:
                 return json.load(file)
         except:  # pylint: disable=bare-except
-            logging.error("Error al cargar la base de datos")
-            return json.loads('{"medios":[]}')
+            logging.error("Error al cargar la base de datos\n")
+            sys.exit(1)
 
     def guardar_media(self):
         '''Guarda la base de datos en disco'''
@@ -443,7 +443,6 @@ class MainApp(Ice.Application): # pylint: disable=too-many-instance-attributes
         self.interfaz_catalog_udt = None
 
         # variables TopicManager
-        self.topic_manager_str_prx = "IceStorm/TopicManager -t:tcp -h localhost -p 10000"
         self.topic_manager = None
 
         # variables topics
@@ -509,8 +508,8 @@ class MainApp(Ice.Application): # pylint: disable=too-many-instance-attributes
         self.adapter_catalog.activate()
 
         # conectarse al topic manager
-        self.topic_manager = IceStorm.TopicManagerPrx.checkedCast( # pylint: disable=no-member
-            broker.stringToProxy(self.topic_manager_str_prx),
+        self.topic_manager = IceStorm.TopicManagerPrx.checkedCast(  # pylint:disable=no-member
+            self.communicator().propertyToProxy("IceStorm.TopicManager")
         )
 
         if not self.topic_manager:

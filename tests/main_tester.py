@@ -41,16 +41,16 @@ class Announces(IceFlix.Announcement): # pylint: disable=too-few-public-methods
 
         if service.ice_isA("::IceFlix::Main"):
             self.mains.update({serviceId: service})
-            logging.info("new Main service: %s\n", serviceId)
+            logging.info(" New Main service: %s\n", serviceId)
         elif service.ice_isA("::IceFlix::Authenticator"):
             self.authenticators.update({serviceId: service})
-            logging.info("new Authenticator service: %s\n", serviceId)
+            logging.info(" New Authenticator service: %s\n", serviceId)
         elif service.ice_isA("::IceFlix::MediaCatalog"):
             self.catalogs.update({serviceId: service})
-            logging.info("new MediaCatalog service: %s\n", serviceId)
+            logging.info(" New MediaCatalog service: %s\n", serviceId)
         elif service.ice_isA("::IceFlix::FileService"):
             self.files.update({serviceId: service})
-            logging.info("new File service: %s\n", serviceId)
+            logging.info(" New File service: %s\n", serviceId)
 
 ########################################################################################
 ################################### Main Servant #######################################
@@ -96,7 +96,7 @@ class Server(Ice.Application): # pylint: disable=too-many-instance-attributes
         """ Anunciar el servicio al main. """
         while self.fin:
             self.anuncios_publisher.announce(self.proxy, self.id_service)
-            logging.info("Main Tester anunciado\n")
+            logging.info(" Main Tester anunciado\n")
             time.sleep(10)
 
     def recuperar_topic(self, topic_name):
@@ -109,19 +109,19 @@ class Server(Ice.Application): # pylint: disable=too-many-instance-attributes
 
     def run(self, args):
         """ Run the application, adding the needed objects to the adapter. """
-        logging.info("Running Main application\n")
+        logging.info(" Running Main application\n")
         broker = self.communicator()
 
         self.adapter = broker.createObjectAdapter("TestMainAdapter")
 
         self.proxy = self.adapter.add(self.servant, broker.stringToIdentity("MainTester"))
 
-        logging.info("Proxy MainTester: %s\n", self.proxy)
+        logging.info(" ServiceID MainTester: %s\n", self.id_service)
         self.adapter.activate()
 
         # conectarse al topic manager
-        self.topic_manager = IceStorm.TopicManagerPrx.checkedCast( # pylint: disable=no-member
-            broker.stringToProxy(self.topic_manager_str_prx),
+        self.topic_manager = IceStorm.TopicManagerPrx.checkedCast(  # pylint:disable=no-member
+            self.communicator().propertyToProxy("IceStorm.TopicManager")
         )
 
         if not self.topic_manager:
