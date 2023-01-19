@@ -34,7 +34,6 @@ Para la ejecución de las pruebas es necesario:
 3. Desde el directorio `iceflix/` ejecutar el servicio **Catalog** con el comando `./run_service`.
 4. Desde el directorio `tests/` ejecutar las pruebas con el comando `./run_tests`.
 
-
-
 ## Librerías y paquetes requeridos
 Para la correcta ejecución del sistema es necesaria la instalación de la librería `zeroc-ice` en una versión mayor o igual a la **3.7.0**, así como las librerías de `icebox` en una versión mayor o igual a la **3.7.0**.
+
