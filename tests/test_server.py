@@ -446,7 +446,7 @@ class MainApp(Ice.Application): # pylint: disable=too-many-instance-attributes
         self.topic_manager = None
 
         # variables topics
-        self.topic_announce_str = "Announcement"
+        self.topic_announce_str = "Announcements"
         self.topic_catalog_udt_str = "CatalogUpdates"
         self.topic_files_str = "FileAvailabilityAnnounce"
         self.topic_announce = None
