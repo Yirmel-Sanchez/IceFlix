@@ -49,7 +49,7 @@ class Server(Ice.Application): # pylint: disable=too-many-instance-attributes
         self.topic_manager = None
 
         #variables topics
-        self.topic_announce_str = "Announcement"
+        self.topic_announce_str = "Announcements"
         self.topic_announce = None
         self.anuncios_publisher = None
 
